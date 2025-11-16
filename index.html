@@ -45,7 +45,7 @@ html,body {height:100%;margin:0;font-family:Inter, Arial, sans-serif;background:
   <div class="left">
     <div class="titlebar">
       <div class="title-left">
-        <div class="title">Python Code Editor v.1.2</div>
+        <div class="title">Python Code Editor v.1.3</div>
         <div class="author">by: Engr. Godofredo L. Jipus Jr</div>
       </div>
       <div class="title-right">
@@ -55,8 +55,8 @@ html,body {height:100%;margin:0;font-family:Inter, Arial, sans-serif;background:
     </div>
     <div class="editor-area">
       <textarea id="code">
-# Example
-name = input("Enter your name: ")
+# Example usage
+name = await input("Enter your name: ")
 print("Hello,", name)
       </textarea>
     </div>
@@ -92,10 +92,11 @@ async function initPyodide(){
   pyodide = await loadPyodide();
   pyodideReady = true;
 
+  // Redirect stdout/stderr
   pyodide.setStdout({batched: msg=>appendConsole(msg)});
   pyodide.setStderr({batched: msg=>appendConsole(msg)});
 
-  // Step 1: Define JS function for input
+  // JS async input
   pyodide.globals.set("js_input", (prompt='')=>{
     appendConsole(prompt);
     return new Promise(resolve=>{
@@ -105,23 +106,28 @@ async function initPyodide(){
     });
   });
 
-  // Step 2: Override Python input() to use JS function
+  // Async Python input wrapper
   await pyodide.runPythonAsync(`
 import builtins
-builtins.input = lambda prompt='': js_input(prompt)
+import asyncio
+
+async def _input_async(prompt=''):
+    return await js_input(prompt)
+
+builtins.input = _input_async
   `);
 
   appendConsoleLine("Python ready.\n");
 }
 initPyodide();
 
-// Capture key input in console
+// Capture key input
 consoleEl.addEventListener('keydown', e=>{
   if(!inputResolve) return;
   if(e.key==='Enter'){
     e.preventDefault();
     appendConsoleLine('');
-    inputResolve(inputBuffer); // send input to Python
+    inputResolve(inputBuffer);
     inputResolve = null;
   } else if(e.key==='Backspace'){
     e.preventDefault();
@@ -137,7 +143,7 @@ consoleEl.addEventListener('keydown', e=>{
   }
 });
 
-// Run button
+// Run / Clear buttons
 document.getElementById('runBtn').addEventListener('click', async()=>{
   if(!pyodideReady){appendConsoleLine("Python is still loading..."); return;}
   appendConsoleLine('--- Running program ---\n');
@@ -157,7 +163,6 @@ await __user_program()
   appendConsoleLine('--- Program finished ---\n');
 });
 
-// Clear button
 document.getElementById('clearBtn').addEventListener('click',()=>{consoleEl.textContent='';});
 </script>
 </body>
