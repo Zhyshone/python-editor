@@ -1,142 +1,295 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Python Code Editor</title>
-
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/python/python.min.js"></script>
-<script src="https://cdn.jsdelivr.net/pyodide/v0.26.0/full/pyodide.js"></script>
-
-<style>
-:root {
-  --bg: #0f1113;
-  --panel: #1b1d1f;
-  --muted: #9aa5b1;
-  --green: #00ff88;
-  --accent: #0e84d4;
-}
-html,body {height:100%;margin:0;font-family:Inter, Arial, sans-serif;background:var(--bg);color:#ddd;}
-.container{display:flex;height:100vh;}
-.left{width:50%;display:flex;flex-direction:column;border-right:1px solid #222;background: var(--panel);}
-.right{width:50%;display:flex;flex-direction:column;background:#0b0c0d;}
-.titlebar{display:flex;justify-content:space-between;padding:10px;background:#151617;border-bottom:1px solid #222;}
-.title-left{display:flex;flex-direction:column;}
-.title-left .title{font-weight:600;font-size:16px;color:#fff;margin:0;}
-.title-left .author{font-size:12px;color:var(--muted);margin-top:3px;}
-.title-right{display:flex;align-items:center;gap:8px;}
-.btn{border:none;padding:7px 12px;border-radius:6px;cursor:pointer;font-weight:600;}
-.btn-run{background:#0e8b3b;color:#fff;}
-.btn-clear{background:transparent;color:#fff;border:1px solid #333;display:flex;align-items:center;justify-content:center;width:32px;height:32px;font-size:16px;padding:0;}
-.editor-area{flex:1;display:flex;}
-.CodeMirror{height:100%;width:100%;font-size:14px;background:#0f1113;color:#ddd;}
-.console-header{padding:10px;border-bottom:1px solid #111;color:var(--muted);}
-.console{flex:1;padding:12px;font-family:"Courier New", monospace;font-size:13px;overflow:auto;white-space:pre-wrap;background:#0b0c0d;color:var(--green);}
-.console-input-wrap{display:flex;gap:8px;margin-top:4px;}
-.console-input{flex:1;padding:6px 8px;border-radius:6px;border:1px solid #222;background:#111;color:#fff;font-family:monospace;}
-.console-submit{padding:6px 10px;border-radius:6px;border:none;background:#0e84d4;color:#fff;cursor:pointer;}
-</style>
+  <meta charset="utf-8" />
+  <title>In-Browser Python (Pyodide) — Demo</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    html,body { height:100%; margin:0; font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial; }
+    .app { display:flex; height:100vh; }
+    #left { width:62%; display:flex; flex-direction:column; border-right:1px solid #222; }
+    #right { flex:1; background:#0b0b0b; color:#cfcfcf; padding:12px; display:flex; flex-direction:column; }
+    #editor { flex:1; }
+    .controls { padding:8px; background:#111; display:flex; gap:8px; align-items:center; }
+    button { padding:8px 12px; border-radius:6px; border:0; cursor:pointer; }
+    button.primary { background: #0b74de; color:white; }
+    button.warn { background:#d9534f; color:white; }
+    #output { flex:1; background:#050505; color:#a8ffa8; padding:12px; margin-top:8px; overflow:auto; font-family:monospace; border-radius:6px; }
+    .small { font-size:0.9rem; color:#bfbfbf; }
+    .topbar { display:flex; justify-content:space-between; align-items:center; padding:6px 8px; background:#0f0f0f; color:#ddd; }
+    input[type=text] { padding:6px; border-radius:4px; border:1px solid #333; background:#0b0b0b; color:#ddd; }
+  </style>
 </head>
 <body>
-<div class="container">
-  <div class="left">
-    <div class="titlebar">
-      <div class="title-left">
-        <div class="title">Python Code Editor v.1.6</div>
-        <div class="author">by: Engr. Godofredo L. Jipus Jr</div>
+  <div class="app">
+    <div id="left">
+      <div class="topbar">
+        <div>In-Browser Python — Pyodide + Monaco</div>
+        <div class="small">No server. Runs in WebAssembly.</div>
       </div>
-      <div class="title-right">
-        <button class="btn btn-run" id="runBtn">Run ▶</button>
-        <button class="btn btn-clear" id="clearBtn">🗑</button>
+
+      <div id="editor"></div>
+
+      <div class="controls">
+        <button id="runBtn" class="primary">Run ▶</button>
+        <button id="stopBtn" class="warn">Stop ⛔</button>
+        <button id="copyBtn">Copy code</button>
+        <label class="small" style="margin-left:12px;">Install package:</label>
+        <input id="pkgInput" type="text" placeholder="e.g. numpy" style="width:140px" />
+        <button id="installBtn">Install</button>
       </div>
     </div>
-    <div class="editor-area">
-      <textarea id="code">
-# Example program
-name = input("Enter your name: ")
-print("Hello,", name)
-      </textarea>
+
+    <div id="right">
+      <div style="display:flex; gap:8px; align-items:center;">
+        <div style="font-weight:600">Console</div>
+        <div class="small">stdout/stderr from the running Python</div>
+      </div>
+
+      <div id="output">Pyodide not loaded yet. Click Run to start the runtime (first run may take a few seconds).</div>
     </div>
   </div>
 
-  <div class="right">
-    <div class="console-header">Console</div>
-    <div id="console" class="console"></div>
-  </div>
-</div>
+  <!-- Monaco loader -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.34.1/min/vs/loader.min.js"></script>
 
-<script>
-const consoleEl = document.getElementById('console');
+  <script>
+  // ========== Helper: create a worker from a string (Blob) ==========
+  function makeWorkerFromString(codeString) {
+    const blob = new Blob([codeString], { type: "application/javascript" });
+    const url = URL.createObjectURL(blob);
+    const w = new Worker(url);
+    // free the object URL when worker terminates
+    const origTerminate = w.terminate.bind(w);
+    w.terminate = () => { origTerminate(); URL.revokeObjectURL(url); };
+    return w;
+  }
+
+  // ========== Worker script: loads Pyodide and runs incoming code ==========
+  const workerScript = `
+// Worker global scope
 let pyodide = null;
-let pyodideReady = false;
+let ready = false;
 
-// Utilities
-function appendConsole(text){consoleEl.textContent += text; consoleEl.scrollTop = consoleEl.scrollHeight;}
-function appendConsoleLine(text=''){appendConsole(text+'\n');}
-function clearConsole(){consoleEl.textContent='';}
+async function loadPyodideAndPackages() {
+  self.postMessage({ type: 'status', msg: 'Loading Pyodide...' });
+  importScripts('https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js');
+  pyodide = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.23.4/full/' });
+  // micropip for installing packages from PyPI
+  await pyodide.loadPackage('micropip');
+  ready = true;
+  self.postMessage({ type: 'status', msg: 'Pyodide ready.' });
+}
 
-// Inline input
-function createConsoleInput(prompt=''){
-  return new Promise(resolve=>{
-    appendConsole(prompt);
-    const wrapper=document.createElement('div');
-    wrapper.className='console-input-wrap';
-    const input=document.createElement('input');
-    input.className='console-input';
-    const btn=document.createElement('button');
-    btn.className='console-submit';
-    btn.textContent='Enter';
-    function submit(){
-      appendConsoleLine(input.value);
-      wrapper.remove();
-      resolve(input.value+'\n');
+// Helper: create a small Python redirect class to send stdout/stderr back to main thread
+function makeStdRedirector(kind) {
+  // kind: 'stdout' or 'stderr'
+  return `
+class _JSRedirect:
+    def __init__(self):
+        pass
+    def write(self, s):
+        if s:
+            try:
+                s = str(s)
+            except:
+                s = repr(s)
+            __post_message__({ "type": "${kind}", "data": s })
+    def flush(self):
+        pass
+
+import sys
+sys.${kind} = _JSRedirect()
+`;
+}
+
+// function to post from Python -> Worker -> main thread
+function jsPostMessage(obj) {
+  // will be used by injected python to call back into JS
+  self.postMessage(obj);
+}
+
+// When this worker is started, immediately begin loading Pyodide
+loadPyodideAndPackages().catch(err => {
+  self.postMessage({ type: 'status', msg: 'Pyodide load failed: ' + err.toString() });
+});
+
+// Receive commands from main thread
+self.onmessage = async (ev) => {
+  const msg = ev.data;
+  if (msg && msg.cmd === 'run') {
+    if (!ready) {
+      self.postMessage({ type: 'status', msg: 'Runtime not ready yet.' });
+      return;
     }
-    btn.addEventListener('click', submit);
-    input.addEventListener('keydown', e=>{if(e.key==='Enter') submit();});
-    wrapper.appendChild(input);
-    wrapper.appendChild(btn);
-    consoleEl.appendChild(wrapper);
-    input.focus();
-    consoleEl.scrollTop = consoleEl.scrollHeight;
+    const code = msg.code || '';
+    try {
+      // expose a JS function to Python to post messages
+      self.__post_message__ = (o) => self.postMessage(o);
+      // make that callable from python
+      pyodide.registerJsModule('__worker_helpers__', { __post_message__: self.__post_message__ });
+
+      // redirect stdout & stderr
+      const redirect_py = makeStdRedirector('stdout') + makeStdRedirector('stderr') + `
+# expose the helper
+from __worker_helpers__ import __post_message__ as __post_message__
+`;
+      // run redirect setup
+      await pyodide.runPythonAsync(redirect_py);
+      // run the user's code
+      self.postMessage({ type: 'status', msg: 'Executing...' });
+      const result = await pyodide.runPythonAsync(code);
+      // if code returns something, print its repr
+      if (result !== undefined && result !== null) {
+        self.postMessage({ type: 'stdout', data: '\\n[Return] ' + String(result) + '\\n' });
+      }
+      self.postMessage({ type: 'status', msg: 'Execution finished.' });
+    } catch (err) {
+      // err is a JavaScript Error with traceback info in message
+      self.postMessage({ type: 'stderr', data: String(err) + '\\n' });
+      self.postMessage({ type: 'status', msg: 'Execution failed.' });
+    }
+  } else if (msg && msg.cmd === 'install') {
+    if (!ready) {
+      self.postMessage({ type: 'status', msg: 'Runtime not ready.' });
+      return;
+    }
+    const pkg = msg.pkg;
+    try {
+      self.postMessage({ type: 'status', msg: 'Installing ' + pkg + ' ...' });
+      await pyodide.runPythonAsync(\`
+import micropip
+await micropip.install('${pkg}')
+\`);
+      self.postMessage({ type: 'status', msg: 'Installed ' + pkg });
+    } catch (err) {
+      self.postMessage({ type: 'stderr', data: 'Package install failed: ' + String(err) + '\\n' });
+      self.postMessage({ type: 'status', msg: 'Install failed.' });
+    }
+  }
+};
+`;
+
+  // ========== UI: create Monaco Editor ==========
+  require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.34.1/min/vs' }});
+  require(['vs/editor/editor.main'], function () {
+    window.editor = monaco.editor.create(document.getElementById('editor'), {
+      value: [
+        'print("Hello from Pyodide!")',
+        '',
+        '# Example: use micropip to install a package then import it.',
+        '# For example, to use rich Python packages (may take time and network):',
+        '# from js import console',
+        '# import sys',
+        '# print(sys.version)'
+      ].join('\\n'),
+      language: 'python',
+      theme: 'vs-dark',
+      automaticLayout: true,
+      fontSize: 14,
+      minimap: { enabled: false },
+    });
   });
-}
 
-// Initialize CodeMirror
-const editor = CodeMirror.fromTextArea(document.getElementById('code'),{
-  mode:'python', theme:'dracula', lineNumbers:true, indentUnit:4, tabSize:4
-});
-editor.setSize('100%','100%');
+  // ========== Manage worker lifecycle ==========
+  let pyWorker = null;
+  let isRunning = false;
 
-// Load Pyodide
-async function initPyodide(){
-  appendConsoleLine("Loading Python runtime...");
-  pyodide = await loadPyodide();
-  pyodideReady = true;
+  function createWorker() {
+    if (pyWorker) {
+      try { pyWorker.terminate(); } catch(e) {}
+    }
+    pyWorker = makeWorkerFromString(workerScript);
+    pyWorker.onmessage = (ev) => {
+      const d = ev.data;
+      if (!d) return;
+      if (d.type === 'stdout') appendOutput(d.data);
+      else if (d.type === 'stderr') appendErr(d.data);
+      else if (d.type === 'status') appendStatus(d.msg);
+      else appendOutput(JSON.stringify(d));
+    };
+    pyWorker.onerror = (e) => {
+      appendErr('Worker error: ' + e.message + '\\n');
+    };
+  }
+  createWorker(); // create initial worker (starts loading Pyodide)
 
-  pyodide.setStdout({batched: msg=>appendConsole(msg)});
-  pyodide.setStderr({batched: msg=>appendConsole(msg)});
-  pyodide.setStdin({readline:createConsoleInput});
+  // ========== Output helpers ==========
+  const outputEl = document.getElementById('output');
+  function appendOutput(text) {
+    if (!text) return;
+    outputEl.textContent += text;
+    outputEl.scrollTop = outputEl.scrollHeight;
+  }
+  function appendErr(text) {
+    if (!text) return;
+    outputEl.textContent += '[ERR] ' + text;
+    outputEl.scrollTop = outputEl.scrollHeight;
+  }
+  function appendStatus(msg) {
+    if (!msg) return;
+    outputEl.textContent += '\\n[STATUS] ' + msg + '\\n';
+    outputEl.scrollTop = outputEl.scrollHeight;
+  }
 
-  appendConsoleLine("Python ready.\n");
-}
-initPyodide();
+  // ========== Buttons ==========
+  const runBtn = document.getElementById('runBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const copyBtn = document.getElementById('copyBtn');
+  const installBtn = document.getElementById('installBtn');
+  const pkgInput = document.getElementById('pkgInput');
 
-// Run button
-document.getElementById('runBtn').addEventListener('click', async ()=>{
-  if(!pyodideReady){appendConsoleLine("Python still loading..."); return;}
-  appendConsoleLine('--- Running program ---');
-  const code = editor.getValue();
-  try{
-    await pyodide.runPythonAsync(code);
-  }catch(err){appendConsoleLine('Error:\n'+err);}
-  appendConsoleLine('--- Program finished ---\n');
-});
+  runBtn.addEventListener('click', () => {
+    if (!pyWorker) {
+      createWorker();
+      appendStatus('Worker recreated.');
+    }
+    outputEl.textContent = ''; // clear console for each run
+    const code = window.editor ? window.editor.getValue() : 'print("no editor")';
+    isRunning = true;
+    runBtn.disabled = true;
+    stopBtn.disabled = false;
+    pyWorker.postMessage({ cmd: 'run', code });
+  });
 
-// Clear console
-document.getElementById('clearBtn').addEventListener('click', clearConsole);
-</script>
+  stopBtn.addEventListener('click', () => {
+    if (pyWorker) {
+      try {
+        pyWorker.terminate();
+        appendStatus('Execution stopped by user (worker terminated).');
+      } catch(e) {
+        appendErr('Failed to terminate worker: ' + e);
+      }
+      // create a fresh worker so user can run again
+      createWorker();
+      isRunning = false;
+      runBtn.disabled = false;
+      stopBtn.disabled = true;
+    }
+  });
+
+  copyBtn.addEventListener('click', async () => {
+    const code = window.editor.getValue();
+    try {
+      await navigator.clipboard.writeText(code);
+      appendStatus('Code copied to clipboard.');
+    } catch (e) {
+      appendErr('Copy failed: ' + e);
+    }
+  });
+
+  installBtn.addEventListener('click', () => {
+    const pkg = pkgInput.value.trim();
+    if (!pkg) { appendStatus('Please enter a package name.'); return; }
+    if (!pyWorker) { appendStatus('Worker not ready; creating worker'); createWorker(); }
+    pyWorker.postMessage({ cmd: 'install', pkg });
+  });
+
+  // initial states
+  stopBtn.disabled = true;
+
+  // helpful note for users
+  appendStatus('Worker created. Pyodide will load in the worker the first time it runs (may take a few seconds).');
+  </script>
 </body>
 </html>
