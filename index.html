@@ -45,7 +45,7 @@ html,body {height:100%;margin:0;font-family:Inter, Arial, sans-serif;background:
   <div class="left">
     <div class="titlebar">
       <div class="title-left">
-        <div class="title">Python Code Editor v.1.7</div>
+        <div class="title">Python Code Editor  v.1.8</div>
         <div class="author">by: Engr. Godofredo L. Jipus Jr</div>
       </div>
       <div class="title-right">
@@ -78,7 +78,7 @@ function appendConsole(text){consoleEl.textContent += text; consoleEl.scrollTop 
 function appendConsoleLine(text=''){appendConsole(text+'\n');}
 function clearConsole(){consoleEl.textContent='';}
 
-// Inline input
+// Inline input for the console
 function createConsoleInput(prompt=''){
   return new Promise(resolve=>{
     appendConsole(prompt);
@@ -92,7 +92,7 @@ function createConsoleInput(prompt=''){
     function submit(){
       appendConsoleLine(input.value);
       wrapper.remove();
-      resolve(input.value+'\n');
+      resolve(input.value+'\n'); // add newline to simulate standard input
     }
     btn.addEventListener('click', submit);
     input.addEventListener('keydown', e=>{if(e.key==='Enter') submit();});
@@ -122,14 +122,15 @@ async function initPyodide(){
   pyodide.setStdout({batched: msg => appendConsole(msg)});
   pyodide.setStderr({batched: msg => appendConsole(msg)});
 
-  // Patch Python input() to use our console input
+  // Patch Python input() to use console input synchronously
   await pyodide.runPythonAsync(`
 import builtins
 import js
 import asyncio
 
-async def input(prompt=""):
-    return await js.createConsoleInput(prompt)
+def input(prompt=""):
+    # Call JS createConsoleInput and wait
+    return js.createConsoleInput(prompt).to_py().rstrip("\\n")
 
 builtins.input = input
   `);
@@ -146,7 +147,7 @@ document.getElementById('runBtn').addEventListener('click', async ()=>{
   try{
     await pyodide.runPythonAsync(code);
   }catch(err){appendConsoleLine('Error:\n'+err);}
-  appendConsoleLine('\n--- Program finished ---\n');
+  appendConsoleLine('--- Program finished ---\n');
 });
 
 // Clear console
