@@ -1,166 +1,319 @@
-<!-- CodeMirror CSS -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Python Editor — Dark</title>
 
-<!-- CodeMirror JS -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/python/python.min.js"></script>
+  <!-- CodeMirror -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/python/python.min.js"></script>
 
-<!-- Pyodide -->
-<script src="https://cdn.jsdelivr.net/pyodide/v0.26.0/full/pyodide.js"></script>
+  <!-- Pyodide -->
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.0/full/pyodide.js"></script>
 
-<style>
-  .editor-container {
-    margin-top: 10px;
-  }
+  <style>
+    :root {
+      --bg: #0f1113;
+      --panel: #1b1d1f;
+      --muted: #9aa5b1;
+      --accent: #0e84d4;
+      --green: #00ff88;
+    }
+    html,body { height:100%; margin:0; font-family: Inter, Arial, sans-serif; background:var(--bg); color:#ddd; }
+    .container { display:flex; height:100vh; gap:0; }
 
-  .editor-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px;
-    background: #eee;
-    border-radius: 8px;
-    border: 1px solid #ccc;
-  }
+    /* LEFT PANE (editor) */
+    .left {
+      width:50%;
+      display:flex;
+      flex-direction:column;
+      border-right: 1px solid #222;
+      background: var(--panel);
+    }
+    .titlebar {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:10px 14px;
+      background:#151617;
+      border-bottom:1px solid #222;
+    }
+    .title-left { display:flex; flex-direction:column; }
+    .title-left .title { font-weight:600; font-size:16px; color:#fff; margin:0; }
+    .title-left .author { font-size:12px; color:var(--muted); margin-top:3px; }
 
-  .editor-title {
-    font-size: 18px;
-  }
+    .title-right { display:flex; align-items:center; gap:8px; }
+    .btn {
+      border: none;
+      padding:7px 12px;
+      border-radius:6px;
+      cursor:pointer;
+      font-weight:600;
+      font-size:14px;
+    }
+    .btn-run { background: #0e8b3b; color:#fff; }
+    .btn-clear { background: transparent; color:#fff; border:1px solid #333; padding:6px 10px; }
 
-  .editor-buttons button {
-    cursor: pointer;
-    border: none;
-    padding: 6px 12px;
-    margin-left: 6px;
-    border-radius: 6px;
-    font-size: 14px;
-  }
+    /* Editor area (CodeMirror will fill this) */
+    .editor-area { flex:1; display:flex; }
+    .CodeMirror { height:100%; width:100%; font-size:14px; background:#0f1113; color:#ddd; }
 
-  .btn-run {
-    background: #28a745;
-    color: white;
-  }
+    /* RIGHT PANE (console) */
+    .right {
+      width:50%;
+      display:flex;
+      flex-direction:column;
+      background:#0b0c0d;
+    }
+    .console-header {
+      padding:10px 12px;
+      border-bottom:1px solid #111;
+      color:var(--muted);
+      font-size:13px;
+      background:#0b0c0d;
+    }
+    .console {
+      flex:1;
+      padding:12px;
+      font-family: "Courier New", monospace;
+      font-size:13px;
+      color:var(--green);
+      overflow:auto;
+      white-space: pre-wrap;
+    }
 
-  .btn-clear {
-    background: #dc3545;
-    color: white;
-    font-size: 16px;
-    padding: 6px 10px;
-  }
+    /* inline input box appended inside console */
+    .console-input-wrap {
+      display:flex;
+      gap:8px;
+      margin-top:8px;
+      align-items:center;
+    }
+    .console-input {
+      background:#111;
+      color:#fff;
+      border:1px solid #222;
+      padding:6px 8px;
+      border-radius:6px;
+      flex:1;
+      font-family: monospace;
+      font-size:13px;
+    }
+    .console-submit {
+      background:#0e84d4;
+      color:#fff;
+      border:none;
+      padding:6px 10px;
+      border-radius:6px;
+      cursor:pointer;
+    }
 
-  .layout-box {
-    display: flex;
-    height: 480px;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    overflow: hidden;
-    margin-top: 10px;
-  }
+    /* small responsive tweaks */
+    @media (max-width:900px) {
+      .container { flex-direction:column; }
+      .left, .right { width:100%; height:50vh; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- LEFT: Editor -->
+    <div class="left">
+      <div class="titlebar">
+        <div class="title-left">
+          <div class="title">Python Code Editor</div>
+          <div class="author">by: Engr. Godofredo L. Jipus Jr</div>
+        </div>
+        <div class="title-right">
+          <button class="btn btn-run" id="runBtn">Run ▶</button>
+          <button class="btn btn-clear" id="clearBtn">🗑</button>
+        </div>
+      </div>
 
-  .left-panel {
-    width: 50%;
-    border-right: 1px solid #ccc;
-  }
+      <div class="editor-area">
+        <textarea id="code" spellcheck="false">
+# Example: input works inline in the console (right)
+num = input("Enter a number: ")
+print("You entered:", num)
+        </textarea>
+      </div>
+    </div>
 
-  .right-panel {
-    width: 50%;
-    background: #111;
-    color: #0f0;
-    padding: 10px;
-    overflow: auto;
-    font-family: monospace;
-  }
-</style>
-
-<!-- Top Title -->
-<div style="font-family: Arial;">
-  <strong style="font-size:22px;">Python Code Editor</strong><br>
-  <small>by: Engr. Godofredo L. Jipus Jr</small>
-</div>
-
-<div class="editor-container">
-
-  <!-- Code Editor Header -->
-  <div class="editor-header">
-    <div class="editor-title">Write your Python code below:</div>
-    <div class="editor-buttons">
-      <button class="btn-run" onclick="runPython()">▶ Run</button>
-      <button class="btn-clear" onclick="clearOutput()">🧹</button>
+    <!-- RIGHT: Console -->
+    <div class="right">
+      <div class="console-header">Console (dark)</div>
+      <div id="console" class="console"></div>
     </div>
   </div>
-
-  <!-- Editor + Output Panel -->
-  <div class="layout-box">
-    <div class="left-panel">
-      <textarea id="code-area">print("Hello from Canvas!")</textarea>
-    </div>
-
-    <pre id="output" class="right-panel">Loading Python...</pre>
-  </div>
-
-</div>
 
 <script>
-let pyodide = null;
-let editor;
+/* ---------------------------
+   Utilities for console UI
+   --------------------------- */
+const consoleEl = document.getElementById('console');
 
-// Initialize CodeMirror (light theme)
-editor = CodeMirror.fromTextArea(document.getElementById("code-area"), {
-    mode: "python",
-    theme: "default",
-    lineNumbers: true,
-    indentUnit: 4,
-    tabSize: 4
+function appendConsole(text) {
+  // append text as-is; keep scroll at bottom
+  consoleEl.textContent += text;
+  consoleEl.scrollTop = consoleEl.scrollHeight;
+}
+
+function appendConsoleLine(text='') {
+  appendConsole(text + '\n');
+}
+
+/* ---------------------------
+   Input queue machinery
+   - when Python calls stdin.readline(), we create an input row in the console,
+     wait until the user submits, then resolve with the string.
+   --------------------------- */
+let pendingInputResolve = null;
+
+function createConsoleInput(promptText='') {
+  return new Promise((resolve) => {
+    // show a prompt in console (python also prints prompt via stdout,
+    // but we echo here to keep UX consistent)
+    if (promptText) {
+      appendConsole(promptText);
+    }
+
+    // create interactive elements
+    const wrapper = document.createElement('div');
+    wrapper.className = 'console-input-wrap';
+
+    const input = document.createElement('input');
+    input.className = 'console-input';
+    input.type = 'text';
+    input.autofocus = true;
+    input.placeholder = '';
+
+    const btn = document.createElement('button');
+    btn.className = 'console-submit';
+    btn.textContent = 'Enter';
+
+    // on submit or Enter key, resolve promise and remove elements
+    function submit() {
+      const val = input.value;
+      // echo the input to the console (like terminal)
+      appendConsoleLine(val);
+      wrapper.remove();
+      resolve(val + '\n'); // include newline, Python expects newline in stdin
+    }
+
+    btn.addEventListener('click', submit);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        submit();
+      }
+    });
+
+    wrapper.appendChild(input);
+    wrapper.appendChild(btn);
+    consoleEl.appendChild(wrapper);
+    input.focus();
+    consoleEl.scrollTop = consoleEl.scrollHeight;
+  });
+}
+
+/* ---------------------------
+   Initialize CodeMirror (dark theme, line numbers)
+   --------------------------- */
+const textarea = document.getElementById('code');
+const editor = CodeMirror.fromTextArea(textarea, {
+  mode: 'python',
+  theme: 'dracula',
+  lineNumbers: true,
+  indentUnit: 4,
+  tabSize: 4,
+  autofocus: true
 });
+editor.setSize('100%', '100%');
 
-// Load Pyodide + stdout, stderr, input()
-async function loadPy() {
-    pyodide = await loadPyodide();
+/* ---------------------------
+   Load Pyodide and wire stdout/stderr/stdin
+   --------------------------- */
+let pyodideReady = false;
+let pyodide = null;
 
-    pyodide.setStdout({
-        batched: (msg) => {
-            document.getElementById("output").textContent += msg;
-        }
-    });
+async function initPyodide() {
+  appendConsoleLine('Loading Python runtime... (this may take a few seconds)');
+  pyodide = await loadPyodide();
+  pyodideReady = true;
 
-    pyodide.setStderr({
-        batched: (msg) => {
-            document.getElementById("output").textContent += msg;
-        }
-    });
+  // stdout and stderr handlers: append to console
+  pyodide.setStdout({
+    batched: (msg) => { appendConsole(msg); }
+  });
+  pyodide.setStderr({
+    batched: (msg) => { appendConsole(msg); }
+  });
 
-    pyodide.setStdin({
-        readline: () => {
-            const value = prompt("Python input:");
-            return value === null ? "" : value;
-        }
-    });
-
-    document.getElementById("output").textContent = "Python ready.\n";
-}
-
-loadPy();
-
-// Run Python Code
-async function runPython() {
-    if (!pyodide) {
-        document.getElementById("output").textContent = "Python loading…";
-        return;
+  // stdin handler (async): show inline input in console and wait for user to submit
+  // Pyodide will await this function when Python calls input()
+  pyodide.setStdin({
+    readline: async () => {
+      // Python typically prints the prompt before calling stdin.readline()
+      // We do not need to pass prompt text via this function.
+      // Create an interactive console input and await the user's response.
+      const value = await createConsoleInput();
+      return value; // return string INCLUDING newline
     }
+  });
 
-    document.getElementById("output").textContent = "";
-    const code = editor.getValue();
+  appendConsoleLine('Python ready.\n');
+}
 
-    try {
-        await pyodide.runPythonAsync(code);
-    } catch (err) {
-        document.getElementById("output").textContent += "\nError:\n" + err;
+// Start loading right away
+initPyodide();
+
+/* ---------------------------
+   Run / Clear actions
+   --------------------------- */
+const runBtn = document.getElementById('runBtn');
+const clearBtn = document.getElementById('clearBtn');
+
+async function runCode() {
+  if (!pyodideReady) {
+    appendConsoleLine('Python is still loading — please wait...');
+    return;
+  }
+
+  // Clear any previous input widgets leftover
+  // (there shouldn't be, but safe)
+  const widgets = consoleEl.querySelectorAll('.console-input-wrap');
+  widgets.forEach(w => w.remove());
+
+  // Clear a small separator so student can see the new run
+  appendConsoleLine('--- Running program ---');
+
+  const code = editor.getValue();
+
+  try {
+    // runPythonAsync will use our stdin handler when input() is called
+    const result = await pyodide.runPythonAsync(code);
+    // If code returns a value (REPL-style), print it:
+    if (result !== undefined && result !== null) {
+      // result might be a PyProxy; convert to string
+      appendConsoleLine(String(result));
     }
+  } catch (err) {
+    appendConsoleLine('Error:\n' + String(err) + '\n');
+  }
+
+  appendConsoleLine('--- Program finished ---\n');
 }
 
-// Clear Output
-function clearOutput() {
-    document.getElementById("output").textContent = "";
+function clearConsole() {
+  consoleEl.textContent = '';
 }
+
+/* attach events */
+runBtn.addEventListener('click', runCode);
+clearBtn.addEventListener('click', clearConsole);
+
 </script>
+</body>
+</html>
