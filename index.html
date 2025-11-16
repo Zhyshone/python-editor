@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Python Terminal Editor</title>
+<title>Python Code Editor — Terminal</title>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
@@ -17,21 +17,28 @@ html,body{height:100%;margin:0;font-family:monospace;background:#0f1113;color:#d
 .left{width:50%;display:flex;flex-direction:column;border-right:1px solid #222;background:#1b1d1f;}
 .right{width:50%;display:flex;flex-direction:column;background:#0b0c0d;}
 .titlebar{display:flex;justify-content:space-between;padding:10px;background:#151617;border-bottom:1px solid #222;}
+.title-left{display:flex;flex-direction:column;}
+.title-left .title{font-weight:600;font-size:16px;color:#fff;margin:0;}
+.title-left .author{font-size:12px;color:#9aa5b1;margin-top:3px;}
+.title-right{display:flex;align-items:center;gap:8px;}
 .btn{border:none;padding:7px 12px;border-radius:6px;cursor:pointer;font-weight:600;}
 .btn-run{background:#0e8b3b;color:#fff;}
 .btn-clear{background:transparent;color:#fff;border:1px solid #333;}
 .editor-area{flex:1;display:flex;}
 .CodeMirror{height:100%;width:100%;font-size:14px;background:#0f1113;color:#ddd;}
 .console-header{padding:10px;border-bottom:1px solid #111;color:#9aa5b1;}
-.console{flex:1;padding:12px;overflow:auto;white-space:pre-wrap;background:#0b0c0d;color:#00ff88;outline:none;caret-color:#00ff88;}
+.console{flex:1;padding:12px;overflow:auto;white-space:pre-wrap;background:#0b0c0d;color:#00ff88;outline:none;caret-color:#00ff88;user-select:text;}
 </style>
 </head>
 <body>
 <div class="container">
   <div class="left">
     <div class="titlebar">
-      <div>Python Editor</div>
-      <div>
+      <div class="title-left">
+        <div class="title">Python Code Editor</div>
+        <div class="author">by: Engr. Godofredo L. Jipus Jr</div>
+      </div>
+      <div class="title-right">
         <button class="btn btn-run" id="runBtn">Run ▶</button>
         <button class="btn btn-clear" id="clearBtn">🗑</button>
       </div>
@@ -57,7 +64,6 @@ let pyodide = null;
 let inputResolve = null;
 let inputBuffer = '';
 
-// Append text to console
 function appendConsole(text){consoleEl.textContent += text; consoleEl.scrollTop = consoleEl.scrollHeight;}
 function appendConsoleLine(text=''){appendConsole(text+'\n'); placeCaretEnd(consoleEl);}
 function placeCaretEnd(el){el.focus(); const sel=window.getSelection(); const range=document.createRange(); range.selectNodeContents(el); range.collapse(false); sel.removeAllRanges(); sel.addRange(range);}
@@ -74,22 +80,19 @@ async function initPyodide(){
   pyodide = await loadPyodide();
   pyodideReady = true;
 
-  // Override sys.stdin with our terminal class
-  await pyodide.runPythonAsync(`
-import sys
-class ConsoleInput:
-    def __init__(self):
-        self.buffer = ""
-        self.resolve = None
-    async def readline(self):
-        from js import create_input
-        return await create_input()
-sys.stdin = ConsoleInput()
-`);
+  // Redirect stdout and stderr
+  pyodide.setStdout({batched: msg=>appendConsole(msg)});
+  pyodide.setStderr({batched: msg=>appendConsole(msg)});
 
-  // Expose JS function for Python to await
-  pyodide.globals.set("create_input", async () => {
-    return await new Promise(resolve => {
+  // Patch input() to JS function
+  await pyodide.runPythonAsync(`
+import builtins
+from js import js_input
+builtins.input = lambda prompt='': js_input(prompt)
+`);
+  pyodide.globals.set("js_input", (prompt='')=>{
+    appendConsole(prompt);
+    return new Promise(resolve=>{
       inputResolve = resolve;
       inputBuffer = '';
       placeCaretEnd(consoleEl);
@@ -100,13 +103,13 @@ sys.stdin = ConsoleInput()
 }
 initPyodide();
 
-// Capture key input
+// Capture key input in console
 consoleEl.addEventListener('keydown', e=>{
   if(!inputResolve) return;
   if(e.key==='Enter'){
     e.preventDefault();
     appendConsoleLine('');
-    inputResolve(inputBuffer+'\n');
+    inputResolve(inputBuffer);
     inputResolve=null;
   } else if(e.key==='Backspace'){
     e.preventDefault();
@@ -131,6 +134,7 @@ document.getElementById('runBtn').addEventListener('click',async()=>{
   }catch(err){appendConsoleLine('Error:\n'+err+'\n');}
   appendConsoleLine('--- Finished ---\n');
 });
+
 document.getElementById('clearBtn').addEventListener('click',()=>{consoleEl.textContent='';});
 </script>
 </body>
