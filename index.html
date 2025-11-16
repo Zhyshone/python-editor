@@ -47,7 +47,7 @@ html,body {height:100%;margin:0;font-family:Inter, Arial, sans-serif;background:
   <div class="left">
     <div class="titlebar">
       <div class="title-left">
-        <div class="title">Python Code Editor</div>
+        <div class="title">Python Code Editor (v.1.0)</div>
         <div class="author">by: Engr. Godofredo L. Jipus Jr</div>
       </div>
       <div class="title-right">
@@ -57,7 +57,7 @@ html,body {height:100%;margin:0;font-family:Inter, Arial, sans-serif;background:
     </div>
     <div class="editor-area">
       <textarea id="code">
-# Example program
+# Example
 name = input("Enter your name: ")
 print("Hello,", name)
       </textarea>
@@ -94,32 +94,36 @@ async function initPyodide(){
   pyodide = await loadPyodide();
   pyodideReady = true;
 
-  // Redirect stdout and stderr
+  // Redirect stdout/stderr
   pyodide.setStdout({batched: msg=>appendConsole(msg)});
   pyodide.setStderr({batched: msg=>appendConsole(msg)});
 
-  // Override stdin for input()
-  pyodide.setStdin({
-    readline: () => {
-      return new Promise(resolve => {
-        inputResolve = resolve;
-        inputBuffer = '';
-        placeCaretEnd(consoleEl);
-      });
-    }
+  // Patch built-in input() to use JS function
+  await pyodide.runPythonAsync(`
+import builtins
+from js import js_input
+builtins.input = lambda prompt='': js_input(prompt)
+`);
+  pyodide.globals.set("js_input", (prompt='')=>{
+    appendConsole(prompt);
+    return new Promise(resolve=>{
+      inputResolve = resolve;
+      inputBuffer = '';
+      placeCaretEnd(consoleEl);
+    });
   });
 
   appendConsoleLine("Python ready.\n");
 }
 initPyodide();
 
-// Capture key input for console
+// Capture key input in console
 consoleEl.addEventListener('keydown', e=>{
   if(!inputResolve) return; // only when waiting for input
   if(e.key==='Enter'){
     e.preventDefault();
     appendConsoleLine('');
-    inputResolve(inputBuffer+'\n'); // provide newline to Python
+    inputResolve(inputBuffer); // returns string to Python input()
     inputResolve = null;
   } else if(e.key==='Backspace'){
     e.preventDefault();
@@ -136,12 +140,12 @@ consoleEl.addEventListener('keydown', e=>{
 });
 
 // Run / Clear buttons
-document.getElementById('runBtn').addEventListener('click',async()=>{
-  if(!pyodideReady){appendConsoleLine("Python still loading..."); return;}
+document.getElementById('runBtn').addEventListener('click', async()=>{
+  if(!pyodideReady){appendConsoleLine("Python is still loading..."); return;}
   appendConsoleLine('--- Running program ---\n');
   try{
     await pyodide.runPythonAsync(editor.getValue());
-  } catch(err){appendConsoleLine('Error:\n'+err+'\n');}
+  }catch(err){appendConsoleLine('Error:\n'+err+'\n');}
   appendConsoleLine('--- Program finished ---\n');
 });
 
