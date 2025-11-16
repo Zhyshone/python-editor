@@ -47,7 +47,7 @@ html,body {height:100%;margin:0;font-family:Inter, Arial, sans-serif;background:
   <div class="left">
     <div class="titlebar">
       <div class="title-left">
-        <div class="title">Python Code Editor (v.1.0)</div>
+        <div class="title">Python Code Editor v.1.1</div>
         <div class="author">by: Engr. Godofredo L. Jipus Jr</div>
       </div>
       <div class="title-right">
@@ -57,7 +57,7 @@ html,body {height:100%;margin:0;font-family:Inter, Arial, sans-serif;background:
     </div>
     <div class="editor-area">
       <textarea id="code">
-# Example
+# Example program
 name = input("Enter your name: ")
 print("Hello,", name)
       </textarea>
@@ -78,6 +78,7 @@ let pyodideReady = false;
 let inputResolve = null;
 let inputBuffer = '';
 
+// Console helpers
 function appendConsole(text){consoleEl.textContent += text; consoleEl.scrollTop = consoleEl.scrollHeight;}
 function appendConsoleLine(text=''){appendConsole(text+'\n'); placeCaretEnd(consoleEl);}
 function placeCaretEnd(el){el.focus(); const sel=window.getSelection(); const range=document.createRange(); range.selectNodeContents(el); range.collapse(false); sel.removeAllRanges(); sel.addRange(range);}
@@ -98,12 +99,7 @@ async function initPyodide(){
   pyodide.setStdout({batched: msg=>appendConsole(msg)});
   pyodide.setStderr({batched: msg=>appendConsole(msg)});
 
-  // Patch built-in input() to use JS function
-  await pyodide.runPythonAsync(`
-import builtins
-from js import js_input
-builtins.input = lambda prompt='': js_input(prompt)
-`);
+  // Step 1: Define JS function for input
   pyodide.globals.set("js_input", (prompt='')=>{
     appendConsole(prompt);
     return new Promise(resolve=>{
@@ -113,17 +109,23 @@ builtins.input = lambda prompt='': js_input(prompt)
     });
   });
 
+  // Step 2: Override Python input() to use JS function
+  await pyodide.runPythonAsync(`
+import builtins
+builtins.input = lambda prompt='': js_input(prompt)
+  `);
+
   appendConsoleLine("Python ready.\n");
 }
 initPyodide();
 
 // Capture key input in console
 consoleEl.addEventListener('keydown', e=>{
-  if(!inputResolve) return; // only when waiting for input
+  if(!inputResolve) return;
   if(e.key==='Enter'){
     e.preventDefault();
     appendConsoleLine('');
-    inputResolve(inputBuffer); // returns string to Python input()
+    inputResolve(inputBuffer); // send input to Python
     inputResolve = null;
   } else if(e.key==='Backspace'){
     e.preventDefault();
