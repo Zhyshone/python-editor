@@ -5,13 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Python Code Editor</title>
 
-<!-- CodeMirror -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/python/python.min.js"></script>
-
-<!-- Pyodide -->
 <script src="https://cdn.jsdelivr.net/pyodide/v0.26.0/full/pyodide.js"></script>
 
 <style>
@@ -48,7 +45,7 @@ html,body {height:100%;margin:0;font-family:Inter, Arial, sans-serif;background:
   <div class="left">
     <div class="titlebar">
       <div class="title-left">
-        <div class="title">Python Code Editor v.1.5</div>
+        <div class="title">Python Code Editor v.1.6</div>
         <div class="author">by: Engr. Godofredo L. Jipus Jr</div>
       </div>
       <div class="title-right">
@@ -58,9 +55,9 @@ html,body {height:100%;margin:0;font-family:Inter, Arial, sans-serif;background:
     </div>
     <div class="editor-area">
       <textarea id="code">
-# Example:
-num = input("Enter a number: ")
-print("You entered:", num)
+# Example program
+name = input("Enter your name: ")
+print("Hello,", name)
       </textarea>
     </div>
   </div>
@@ -81,11 +78,11 @@ function appendConsole(text){consoleEl.textContent += text; consoleEl.scrollTop 
 function appendConsoleLine(text=''){appendConsole(text+'\n');}
 function clearConsole(){consoleEl.textContent='';}
 
-// Input machinery
+// Inline input
 function createConsoleInput(prompt=''){
   return new Promise(resolve=>{
     appendConsole(prompt);
-    const wrapper = document.createElement('div');
+    const wrapper=document.createElement('div');
     wrapper.className='console-input-wrap';
     const input=document.createElement('input');
     input.className='console-input';
@@ -93,15 +90,12 @@ function createConsoleInput(prompt=''){
     btn.className='console-submit';
     btn.textContent='Enter';
     function submit(){
-      const val=input.value;
-      appendConsoleLine(val);
+      appendConsoleLine(input.value);
       wrapper.remove();
-      resolve(val+'\n');
+      resolve(input.value+'\n');
     }
     btn.addEventListener('click', submit);
-    input.addEventListener('keydown', e=>{
-      if(e.key==='Enter') submit();
-    });
+    input.addEventListener('keydown', e=>{if(e.key==='Enter') submit();});
     wrapper.appendChild(input);
     wrapper.appendChild(btn);
     consoleEl.appendChild(wrapper);
@@ -124,28 +118,24 @@ async function initPyodide(){
 
   pyodide.setStdout({batched: msg=>appendConsole(msg)});
   pyodide.setStderr({batched: msg=>appendConsole(msg)});
-
-  // JS async input for Python
-  pyodide.setStdin({readline: createConsoleInput});
+  pyodide.setStdin({readline:createConsoleInput});
 
   appendConsoleLine("Python ready.\n");
 }
 initPyodide();
 
-// Run button: executes entire editor code
+// Run button
 document.getElementById('runBtn').addEventListener('click', async ()=>{
   if(!pyodideReady){appendConsoleLine("Python still loading..."); return;}
   appendConsoleLine('--- Running program ---');
   const code = editor.getValue();
   try{
     await pyodide.runPythonAsync(code);
-  }catch(err){
-    appendConsoleLine('Error:\n'+err);
-  }
+  }catch(err){appendConsoleLine('Error:\n'+err);}
   appendConsoleLine('--- Program finished ---\n');
 });
 
-// Clear button
+// Clear console
 document.getElementById('clearBtn').addEventListener('click', clearConsole);
 </script>
 </body>
