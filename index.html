@@ -22,7 +22,6 @@
   --green: #00ff88;
   --accent: #0e84d4;
 }
-
 html,body {height:100%;margin:0;font-family:Inter, Arial, sans-serif;background:var(--bg);color:#ddd;}
 .container{display:flex;height:100vh;}
 .left{width:50%;display:flex;flex-direction:column;border-right:1px solid #222;background: var(--panel);}
@@ -43,11 +42,10 @@ html,body {height:100%;margin:0;font-family:Inter, Arial, sans-serif;background:
 </head>
 <body>
 <div class="container">
-  <!-- LEFT: Editor -->
   <div class="left">
     <div class="titlebar">
       <div class="title-left">
-        <div class="title">Python Code Editor v.1.1</div>
+        <div class="title">Python Code Editor v.1.2</div>
         <div class="author">by: Engr. Godofredo L. Jipus Jr</div>
       </div>
       <div class="title-right">
@@ -57,14 +55,13 @@ html,body {height:100%;margin:0;font-family:Inter, Arial, sans-serif;background:
     </div>
     <div class="editor-area">
       <textarea id="code">
-# Example program
+# Example
 name = input("Enter your name: ")
 print("Hello,", name)
       </textarea>
     </div>
   </div>
 
-  <!-- RIGHT: Console -->
   <div class="right">
     <div class="console-header">Terminal</div>
     <div id="console" class="console" contenteditable="true"></div>
@@ -95,7 +92,6 @@ async function initPyodide(){
   pyodide = await loadPyodide();
   pyodideReady = true;
 
-  // Redirect stdout/stderr
   pyodide.setStdout({batched: msg=>appendConsole(msg)});
   pyodide.setStderr({batched: msg=>appendConsole(msg)});
 
@@ -141,16 +137,27 @@ consoleEl.addEventListener('keydown', e=>{
   }
 });
 
-// Run / Clear buttons
+// Run button
 document.getElementById('runBtn').addEventListener('click', async()=>{
   if(!pyodideReady){appendConsoleLine("Python is still loading..."); return;}
   appendConsoleLine('--- Running program ---\n');
+
+  // Wrap user code in async function automatically
+  const userCode = editor.getValue();
+  const wrappedCode = `
+import asyncio
+async def __user_program():
+${userCode.split('\n').map(line=>'    '+line).join('\n')}
+await __user_program()
+  `;
+
   try{
-    await pyodide.runPythonAsync(editor.getValue());
+    await pyodide.runPythonAsync(wrappedCode);
   }catch(err){appendConsoleLine('Error:\n'+err+'\n');}
   appendConsoleLine('--- Program finished ---\n');
 });
 
+// Clear button
 document.getElementById('clearBtn').addEventListener('click',()=>{consoleEl.textContent='';});
 </script>
 </body>
