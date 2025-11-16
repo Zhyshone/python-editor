@@ -45,7 +45,7 @@ html,body {height:100%;margin:0;font-family:Inter, Arial, sans-serif;background:
   <div class="left">
     <div class="titlebar">
       <div class="title-left">
-        <div class="title">Python Code Editor</div>
+        <div class="title">Python Code Editor v.1.7</div>
         <div class="author">by: Engr. Godofredo L. Jipus Jr</div>
       </div>
       <div class="title-right">
@@ -104,6 +104,9 @@ function createConsoleInput(prompt=''){
   });
 }
 
+// Expose input function to Pyodide
+window.createConsoleInput = createConsoleInput;
+
 // Initialize CodeMirror
 const editor = CodeMirror.fromTextArea(document.getElementById('code'),{
   mode:'python', theme:'dracula', lineNumbers:true, indentUnit:4, tabSize:4
@@ -116,9 +119,20 @@ async function initPyodide(){
   pyodide = await loadPyodide();
   pyodideReady = true;
 
-  pyodide.setStdout({batched: msg=>appendConsole(msg)});
-  pyodide.setStderr({batched: msg=>appendConsole(msg)});
-  pyodide.setStdin({readline:createConsoleInput});
+  pyodide.setStdout({batched: msg => appendConsole(msg)});
+  pyodide.setStderr({batched: msg => appendConsole(msg)});
+
+  // Patch Python input() to use our console input
+  await pyodide.runPythonAsync(`
+import builtins
+import js
+import asyncio
+
+async def input(prompt=""):
+    return await js.createConsoleInput(prompt)
+
+builtins.input = input
+  `);
 
   appendConsoleLine("Python ready.\n");
 }
@@ -132,7 +146,7 @@ document.getElementById('runBtn').addEventListener('click', async ()=>{
   try{
     await pyodide.runPythonAsync(code);
   }catch(err){appendConsoleLine('Error:\n'+err);}
-  appendConsoleLine('--- Program finished ---\n');
+  appendConsoleLine('\n--- Program finished ---\n');
 });
 
 // Clear console
