@@ -3,35 +3,47 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Python Code Editor — Terminal</title>
+<title>Python Code Editor</title>
 
+<!-- CodeMirror -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/python/python.min.js"></script>
+
+<!-- Pyodide -->
 <script src="https://cdn.jsdelivr.net/pyodide/v0.26.0/full/pyodide.js"></script>
 
 <style>
-html,body{height:100%;margin:0;font-family:monospace;background:#0f1113;color:#ddd;}
+:root {
+  --bg: #0f1113;
+  --panel: #1b1d1f;
+  --muted: #9aa5b1;
+  --green: #00ff88;
+  --accent: #0e84d4;
+}
+
+html,body {height:100%;margin:0;font-family:Inter, Arial, sans-serif;background:var(--bg);color:#ddd;}
 .container{display:flex;height:100vh;}
-.left{width:50%;display:flex;flex-direction:column;border-right:1px solid #222;background:#1b1d1f;}
+.left{width:50%;display:flex;flex-direction:column;border-right:1px solid #222;background: var(--panel);}
 .right{width:50%;display:flex;flex-direction:column;background:#0b0c0d;}
 .titlebar{display:flex;justify-content:space-between;padding:10px;background:#151617;border-bottom:1px solid #222;}
 .title-left{display:flex;flex-direction:column;}
 .title-left .title{font-weight:600;font-size:16px;color:#fff;margin:0;}
-.title-left .author{font-size:12px;color:#9aa5b1;margin-top:3px;}
+.title-left .author{font-size:12px;color:var(--muted);margin-top:3px;}
 .title-right{display:flex;align-items:center;gap:8px;}
 .btn{border:none;padding:7px 12px;border-radius:6px;cursor:pointer;font-weight:600;}
 .btn-run{background:#0e8b3b;color:#fff;}
 .btn-clear{background:transparent;color:#fff;border:1px solid #333;}
 .editor-area{flex:1;display:flex;}
 .CodeMirror{height:100%;width:100%;font-size:14px;background:#0f1113;color:#ddd;}
-.console-header{padding:10px;border-bottom:1px solid #111;color:#9aa5b1;}
-.console{flex:1;padding:12px;overflow:auto;white-space:pre-wrap;background:#0b0c0d;color:#00ff88;outline:none;caret-color:#00ff88;user-select:text;}
+.console-header{padding:10px;border-bottom:1px solid #111;color:var(--muted);}
+.console{flex:1;padding:12px;font-family:"Courier New", monospace;font-size:13px;overflow:auto;white-space:pre-wrap;background:#0b0c0d;color:var(--green);outline:none;caret-color:var(--green);user-select:text;}
 </style>
 </head>
 <body>
 <div class="container">
+  <!-- LEFT: Editor -->
   <div class="left">
     <div class="titlebar">
       <div class="title-left">
@@ -45,12 +57,14 @@ html,body{height:100%;margin:0;font-family:monospace;background:#0f1113;color:#d
     </div>
     <div class="editor-area">
       <textarea id="code">
-# Example
+# Example program
 name = input("Enter your name: ")
 print("Hello,", name)
       </textarea>
     </div>
   </div>
+
+  <!-- RIGHT: Console -->
   <div class="right">
     <div class="console-header">Terminal</div>
     <div id="console" class="console" contenteditable="true"></div>
@@ -59,8 +73,8 @@ print("Hello,", name)
 
 <script>
 const consoleEl = document.getElementById('console');
-let pyodideReady = false;
 let pyodide = null;
+let pyodideReady = false;
 let inputResolve = null;
 let inputBuffer = '';
 
@@ -76,7 +90,7 @@ editor.setSize('100%','100%');
 
 // Load Pyodide
 async function initPyodide(){
-  appendConsoleLine("Loading Python...");
+  appendConsoleLine("Loading Python runtime...");
   pyodide = await loadPyodide();
   pyodideReady = true;
 
@@ -84,55 +98,51 @@ async function initPyodide(){
   pyodide.setStdout({batched: msg=>appendConsole(msg)});
   pyodide.setStderr({batched: msg=>appendConsole(msg)});
 
-  // Patch input() to JS function
-  await pyodide.runPythonAsync(`
-import builtins
-from js import js_input
-builtins.input = lambda prompt='': js_input(prompt)
-`);
-  pyodide.globals.set("js_input", (prompt='')=>{
-    appendConsole(prompt);
-    return new Promise(resolve=>{
-      inputResolve = resolve;
-      inputBuffer = '';
-      placeCaretEnd(consoleEl);
-    });
+  // Override stdin for input()
+  pyodide.setStdin({
+    readline: () => {
+      return new Promise(resolve => {
+        inputResolve = resolve;
+        inputBuffer = '';
+        placeCaretEnd(consoleEl);
+      });
+    }
   });
 
   appendConsoleLine("Python ready.\n");
 }
 initPyodide();
 
-// Capture key input in console
+// Capture key input for console
 consoleEl.addEventListener('keydown', e=>{
-  if(!inputResolve) return;
+  if(!inputResolve) return; // only when waiting for input
   if(e.key==='Enter'){
     e.preventDefault();
     appendConsoleLine('');
-    inputResolve(inputBuffer);
-    inputResolve=null;
+    inputResolve(inputBuffer+'\n'); // provide newline to Python
+    inputResolve = null;
   } else if(e.key==='Backspace'){
     e.preventDefault();
     if(inputBuffer.length>0){
-      inputBuffer=inputBuffer.slice(0,-1);
-      consoleEl.textContent=consoleEl.textContent.slice(0,-1);
+      inputBuffer = inputBuffer.slice(0,-1);
+      consoleEl.textContent = consoleEl.textContent.slice(0,-1);
       placeCaretEnd(consoleEl);
     }
   } else if(e.key.length===1){
     e.preventDefault();
-    inputBuffer+=e.key;
+    inputBuffer += e.key;
     appendConsole(e.key);
   }
 });
 
 // Run / Clear buttons
 document.getElementById('runBtn').addEventListener('click',async()=>{
-  if(!pyodideReady){appendConsoleLine("Python not ready"); return;}
-  appendConsoleLine('--- Running ---\n');
+  if(!pyodideReady){appendConsoleLine("Python still loading..."); return;}
+  appendConsoleLine('--- Running program ---\n');
   try{
     await pyodide.runPythonAsync(editor.getValue());
-  }catch(err){appendConsoleLine('Error:\n'+err+'\n');}
-  appendConsoleLine('--- Finished ---\n');
+  } catch(err){appendConsoleLine('Error:\n'+err+'\n');}
+  appendConsoleLine('--- Program finished ---\n');
 });
 
 document.getElementById('clearBtn').addEventListener('click',()=>{consoleEl.textContent='';});
