@@ -13,31 +13,31 @@
 
 <style>
 :root {
-  --bg: #f0f0f0;
-  --editor-bg: #ffffff;
-  --editor-text: #000000;
+  --bg: #0f1113;
   --panel: #1b1d1f;
   --muted: #9aa5b1;
   --green: #00ff88;
   --accent: #0e84d4;
 }
-html,body {height:100%;margin:0;font-family:Inter, Arial, sans-serif;background:var(--bg);color:#333;}
+html,body {height:100%;margin:0;font-family:Inter, Arial, sans-serif;background:var(--bg);color:#ddd;}
 .container{display:flex;height:100vh;}
-.left{width:50%;display:flex;flex-direction:column;border-right:1px solid #ccc;background: var(--editor-bg);}
+.left{width:50%;display:flex;flex-direction:column;border-right:1px solid #222;background: var(--panel);}
 .right{width:50%;display:flex;flex-direction:column;background:#0b0c0d;}
-.titlebar{display:flex;justify-content:space-between;padding:10px;background:#e0e0e0;border-bottom:1px solid #ccc;}
+.titlebar{display:flex;justify-content:space-between;padding:10px;background:#151617;border-bottom:1px solid #222;}
 .title-left{display:flex;flex-direction:column;}
-.title-left .title{font-weight:600;font-size:16px;color:#000;margin:0;}
-.title-left .author{font-size:12px;color:#555;margin-top:3px;}
+.title-left .title{font-weight:600;font-size:16px;color:#fff;margin:0;}
+.title-left .author{font-size:12px;color:var(--muted);margin-top:3px;}
 .title-right{display:flex;align-items:center;gap:8px;}
 .btn{border:none;padding:7px 12px;border-radius:6px;cursor:pointer;font-weight:600;}
 .btn-run{background:#0e8b3b;color:#fff;}
-.btn-clear{background:transparent;color:#333;border:1px solid #333;display:flex;align-items:center;justify-content:center;width:32px;height:32px;font-size:16px;padding:0;}
+.btn-clear{background:transparent;color:#fff;border:1px solid #333;display:flex;align-items:center;justify-content:center;width:32px;height:32px;font-size:16px;padding:0;}
 .editor-area{flex:1;display:flex;}
-.CodeMirror{height:100%;width:100%;font-size:14px;background:var(--editor-bg);color:var(--editor-text);}
+.CodeMirror{height:100%;width:100%;font-size:14px;background:#0f1113;color:#ddd;}
 .console-header{padding:10px;border-bottom:1px solid #111;color:var(--muted);}
-.console{flex:1;padding:12px;font-family:"Courier New", monospace;font-size:13px;overflow:auto;white-space:pre-wrap;background:#0b0c0d;color:var(--green);position:relative;}
-.console input {outline:none;}
+.console{flex:1;padding:12px;font-family:"Courier New", monospace;font-size:13px;overflow:auto;white-space:pre-wrap;background:#0b0c0d;color:var(--green);}
+.console-input-wrap{display:flex;gap:8px;margin-top:4px;}
+.console-input{flex:1;padding:6px 8px;border-radius:6px;border:1px solid #222;background:#111;color:#fff;font-family:monospace;}
+.console-submit{padding:6px 10px;border-radius:6px;border:none;background:#0e84d4;color:#fff;cursor:pointer;}
 </style>
 </head>
 <body>
@@ -45,7 +45,7 @@ html,body {height:100%;margin:0;font-family:Inter, Arial, sans-serif;background:
   <div class="left">
     <div class="titlebar">
       <div class="title-left">
-        <div class="title">Python Code Editor  v.1.10</div>
+        <div class="title">Python Code Editor v.1.17</div>
         <div class="author">by: Engr. Godofredo L. Jipus Jr</div>
       </div>
       <div class="title-right">
@@ -74,37 +74,38 @@ let pyodide = null;
 let pyodideReady = false;
 
 // Utilities
-function appendConsole(text='') {
-    consoleEl.textContent += text;
-    consoleEl.scrollTop = consoleEl.scrollHeight;
-}
-function clearConsole() {consoleEl.textContent='';}
+function appendConsole(text){consoleEl.textContent += text; consoleEl.scrollTop = consoleEl.scrollHeight;}
+function appendConsoleLine(text=''){appendConsole(text+'\n');}
+function clearConsole(){consoleEl.textContent='';}
 
-// Inline console input
-let inputResolve = null;
-
-const inputField = document.createElement('input');
-inputField.style.width = '100%';
-inputField.style.background = '#111';
-inputField.style.color = '#fff';
-inputField.style.border = 'none';
-inputField.style.padding = '4px';
-inputField.style.fontFamily = 'monospace';
-inputField.addEventListener('keydown', e => {
-    if(e.key==='Enter' && inputResolve) {
-        appendConsole(inputField.value + '\n');
-        inputResolve(inputField.value);
-        inputResolve = null;
-        inputField.value = '';
-    }
-});
-consoleEl.appendChild(inputField);
-
-function getConsoleInput(prompt='') {
+// Inline input for the console
+function createConsoleInput(prompt=''){
+  return new Promise(resolve=>{
     appendConsole(prompt);
-    return new Promise(resolve => { inputResolve = resolve; inputField.focus(); });
+    const wrapper=document.createElement('div');
+    wrapper.className='console-input-wrap';
+    const input=document.createElement('input');
+    input.className='console-input';
+    const btn=document.createElement('button');
+    btn.className='console-submit';
+    btn.textContent='Enter';
+    function submit(){
+      appendConsoleLine(input.value);
+      wrapper.remove();
+      resolve(input.value+'\n'); // add newline to simulate standard input
+    }
+    btn.addEventListener('click', submit);
+    input.addEventListener('keydown', e=>{if(e.key==='Enter') submit();});
+    wrapper.appendChild(input);
+    wrapper.appendChild(btn);
+    consoleEl.appendChild(wrapper);
+    input.focus();
+    consoleEl.scrollTop = consoleEl.scrollHeight;
+  });
 }
-window.getConsoleInput = getConsoleInput;
+
+// Expose input function to Pyodide
+window.createConsoleInput = createConsoleInput;
 
 // Initialize CodeMirror
 const editor = CodeMirror.fromTextArea(document.getElementById('code'),{
@@ -114,31 +115,39 @@ editor.setSize('100%','100%');
 
 // Load Pyodide
 async function initPyodide(){
-  appendConsole("Loading Python runtime...\n");
+  appendConsoleLine("Loading Python runtime...");
   pyodide = await loadPyodide();
   pyodideReady = true;
 
   pyodide.setStdout({batched: msg => appendConsole(msg)});
   pyodide.setStderr({batched: msg => appendConsole(msg)});
 
+  // Patch Python input() to use console input synchronously
   await pyodide.runPythonAsync(`
 import builtins
 import js
-builtins.input = lambda prompt="": js.getConsoleInput(prompt).to_py()
+import asyncio
+
+def input(prompt=""):
+    # Call JS createConsoleInput and wait
+    return js.createConsoleInput(prompt).to_py().rstrip("\\n")
+
+builtins.input = input
   `);
 
-  appendConsole("\nPython ready.\n");
+  appendConsoleLine("Python ready.\n");
 }
 initPyodide();
 
 // Run button
 document.getElementById('runBtn').addEventListener('click', async ()=>{
-    if(!pyodideReady){appendConsole("Python still loading...\n"); return;}
-    appendConsole('--- Running program ---\n');
-    try{
-        await pyodide.runPythonAsync(editor.getValue());
-    }catch(err){appendConsole('Error:\n'+err+'\n');}
-    appendConsole('--- Program finished ---\n');
+  if(!pyodideReady){appendConsoleLine("Python still loading..."); return;}
+  appendConsoleLine('--- Running program ---');
+  const code = editor.getValue();
+  try{
+    await pyodide.runPythonAsync(code);
+  }catch(err){appendConsoleLine('Error:\n'+err);}
+  appendConsoleLine('--- Program finished ---\n');
 });
 
 // Clear console
