@@ -1,380 +1,142 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Python Code Editor v1.7</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Python Code Editor</title>
 
-<!-- Monaco -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.34.1/min/vs/loader.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/python/python.min.js"></script>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.0/full/pyodide.js"></script>
 
-<!-- Styles (designed to match your screenshot: left editor, right black console) -->
 <style>
-  :root {
-    --bg: #2b2e3a;
-    --panel: #24262d;
-    --accent: #07c36d;
-    --muted: #9aa0a6;
-  }
-  html,body { height:100%; margin:0; font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial; background: #101012; }
-  #topbar {
-    height:44px;
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    padding:6px 12px;
-    background: #0b0b0b;
-    color:#9ed7a6;
-    border-bottom:1px solid #111;
-    font-size:13px;
-  }
-  #topbar .left { font-weight:600 }
-  #topbar .right { color:#bdbdbd; font-size:12px }
-
-  #app { display:flex; height: calc(100vh - 44px); }
-  #left {
-    width:60%;
-    background: var(--panel);
-    border-right: 1px solid #222;
-    position:relative;
-    display:flex;
-    flex-direction:column;
-  }
-
-  #metaRow {
-    height:38px;
-    display:flex;
-    align-items:center;
-    justify-content:flex-end;
-    gap:8px;
-    padding:6px 10px;
-    background: #111216;
-    border-bottom:1px solid #262626;
-  }
-  button {
-    background:#2f8d47;
-    color:#000;
-    border:0;
-    padding:6px 10px;
-    border-radius:6px;
-    cursor:pointer;
-    font-weight:700;
-  }
-  button.stop { background:#d9534f; color:#fff; }
-  button.ghost { background:#262626; color:#cfcfcf; }
-  button.small { padding:6px 8px; font-weight:600; font-size:13px; }
-
-  #editor { height: calc(100% - 38px); }
-
-  #right {
-    width:40%;
-    background:#070707;
-    color:#00ff90;
-    padding:12px;
-    font-family: monospace;
-    font-size:13px;
-    overflow:auto;
-    position:relative;
-  }
-
-  #consoleHeader { color:#7fbf9a; font-weight:600; margin-bottom:8px; }
-  #console { white-space:pre-wrap; color:#00ff90; line-height:1.3; }
-  #console .status { color:#bfbfbf; }
-  #overlayPrompt {
-    position:absolute;
-    left:50%;
-    top:50%;
-    transform:translate(-50%,-50%);
-    background:#101010;
-    border:1px solid #333;
-    padding:12px;
-    z-index:999;
-    border-radius:8px;
-    display:none;
-    width:420px;
-  }
-  #overlayPrompt label { color:#ddd; display:block; margin-bottom:6px; font-size:14px; }
-  #overlayPrompt input { width:100%; padding:8px; border-radius:6px; border:1px solid #333; background:#0b0b0b; color:#fff; }
-  #overlayPrompt .row { display:flex; justify-content:flex-end; gap:8px; margin-top:8px; }
-  .smallmuted { color:#9aa0a6; font-size:12px; margin-left:8px; }
+:root {
+  --bg: #0f1113;
+  --panel: #1b1d1f;
+  --muted: #9aa5b1;
+  --green: #00ff88;
+  --accent: #0e84d4;
+}
+html,body {height:100%;margin:0;font-family:Inter, Arial, sans-serif;background:var(--bg);color:#ddd;}
+.container{display:flex;height:100vh;}
+.left{width:50%;display:flex;flex-direction:column;border-right:1px solid #222;background: var(--panel);}
+.right{width:50%;display:flex;flex-direction:column;background:#0b0c0d;}
+.titlebar{display:flex;justify-content:space-between;padding:10px;background:#151617;border-bottom:1px solid #222;}
+.title-left{display:flex;flex-direction:column;}
+.title-left .title{font-weight:600;font-size:16px;color:#fff;margin:0;}
+.title-left .author{font-size:12px;color:var(--muted);margin-top:3px;}
+.title-right{display:flex;align-items:center;gap:8px;}
+.btn{border:none;padding:7px 12px;border-radius:6px;cursor:pointer;font-weight:600;}
+.btn-run{background:#0e8b3b;color:#fff;}
+.btn-clear{background:transparent;color:#fff;border:1px solid #333;display:flex;align-items:center;justify-content:center;width:32px;height:32px;font-size:16px;padding:0;}
+.editor-area{flex:1;display:flex;}
+.CodeMirror{height:100%;width:100%;font-size:14px;background:#0f1113;color:#ddd;}
+.console-header{padding:10px;border-bottom:1px solid #111;color:var(--muted);}
+.console{flex:1;padding:12px;font-family:"Courier New", monospace;font-size:13px;overflow:auto;white-space:pre-wrap;background:#0b0c0d;color:var(--green);}
+.console-input-wrap{display:flex;gap:8px;margin-top:4px;}
+.console-input{flex:1;padding:6px 8px;border-radius:6px;border:1px solid #222;background:#111;color:#fff;font-family:monospace;}
+.console-submit{padding:6px 10px;border-radius:6px;border:none;background:#0e84d4;color:#fff;cursor:pointer;}
 </style>
 </head>
 <body>
-
-<div id="topbar">
-  <div class="left">Python Code Editor v1.6 <span style="font-weight:400; color:#cfcfcf; margin-left:10px; font-size:12px;">by: Engr. Godofredo L. Lijuso Jr</span></div>
-  <div class="right smallmuted">In-Browser Python (Pyodide) — No server</div>
-</div>
-
-<div id="app">
-  <div id="left">
-    <div id="metaRow">
-      <button id="runBtn">Run ▶</button>
-      <button id="stopBtn" class="stop">Stop ⛔</button>
-      <button id="clearBtn" class="ghost small">Clear Console</button>
-      <button id="copyBtn" class="ghost small">Copy Code</button>
-    </div>
-    <div id="editor"></div>
-  </div>
-
-  <div id="right">
-    <div id="consoleHeader">Console</div>
-    <div id="console">Loading Python runtime...<br/></div>
-
-    <!-- simple prompt overlay used to gather values for input() calls found in code -->
-    <div id="overlayPrompt">
-      <label id="promptLabel">Enter input:</label>
-      <input id="promptInput" />
-      <div class="row" style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
-        <button id="promptOk" class="small">OK</button>
-        <button id="promptCancel" class="small ghost">Cancel</button>
+<div class="container">
+  <div class="left">
+    <div class="titlebar">
+      <div class="title-left">
+        <div class="title">Python Code Editor</div>
+        <div class="author">by: Engr. Godofredo L. Jipus Jr</div>
+      </div>
+      <div class="title-right">
+        <button class="btn btn-run" id="runBtn">Run ▶</button>
+        <button class="btn btn-clear" id="clearBtn">🗑</button>
       </div>
     </div>
+    <div class="editor-area">
+      <textarea id="code">
+# Example program
+name = input("Enter your name: ")
+print("Hello,", name)
+      </textarea>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="console-header">Console</div>
+    <div id="console" class="console"></div>
   </div>
 </div>
 
-<!-- Pyodide loader (we will run in a Web Worker to avoid blocking UI) -->
 <script>
-/* ---------- Utility: make a worker from a string ---------- */
-function makeWorkerFromString(codeString) {
-  const blob = new Blob([codeString], { type: "application/javascript" });
-  const url = URL.createObjectURL(blob);
-  const worker = new Worker(url);
-  const orig = worker.terminate.bind(worker);
-  worker.terminate = () => { orig(); URL.revokeObjectURL(url); };
-  return worker;
-}
-</script>
-
-<script>
-/* ---------------- Worker Script ----------------
-   This worker loads Pyodide and executes code sent from main thread.
-   It posts back messages of type: stdout, stderr, status.
---------------------------------------------------*/
-const workerScript = `
-
-let pyodide = null;
-let ready = false;
-
-self.postMessage({ type:'status', msg: 'Worker starting, loading Pyodide...' });
-
-async function init() {
-  importScripts('https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js');
-  pyodide = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.23.4/full/' });
-  // setup micropip (optional)
-  await pyodide.loadPackage('micropip');
-  ready = true;
-  self.postMessage({ type:'status', msg: 'Pyodide ready.' });
-}
-
-// Helper: redirect stdout/stderr to main thread
-function setupRedirects() {
-  // define Python code to redirect sys.stdout / sys.stderr to JS post messages
-  const redirect_code = \`
-import sys
-from js import postMessage as __post_message__
-class _Writer:
-    def __init__(self, kind):
-        self.kind = kind
-    def write(self, s):
-        if s is None:
-            return
-        # send message to main thread
-        __post_message__({ "type": self.kind, "data": str(s)})
-    def flush(self):
-        pass
-
-sys.stdout = _Writer("stdout")
-sys.stderr = _Writer("stderr")
-\`;
-  return pyodide.runPythonAsync(redirect_code);
-}
-
-// Initialize
-init().then(() => {
-  // once pyodide is ready, set up stdout/stderr
-  setupRedirects().then(() => {
-    self.postMessage({ type:'status', msg: 'Stdout/stderr redirected.' });
-  });
-}).catch(err => {
-  self.postMessage({ type:'status', msg: 'Pyodide init failed: ' + String(err) });
-});
-
-// Message handler: run code or load package
-self.onmessage = async (ev) => {
-  const msg = ev.data;
-  if (!msg || !msg.cmd) return;
-  if (msg.cmd === 'run') {
-    if (!ready) { self.postMessage({ type:'status', msg: 'Runtime not ready.'}); return; }
-    const code = msg.code || '';
-    try {
-      self.postMessage({ type:'status', msg: 'Executing...' });
-      // run
-      await pyodide.runPythonAsync(code);
-      self.postMessage({ type:'status', msg: 'Execution finished.' });
-    } catch (err) {
-      // err.message often contains full traceback
-      self.postMessage({ type:'stderr', data: String(err) + '\\n' });
-      self.postMessage({ type:'status', msg: 'Execution error.' });
-    }
-  } else if (msg.cmd === 'install') {
-    if (!ready) { self.postMessage({ type:'status', msg: 'Runtime not ready.'}); return; }
-    const pkg = msg.pkg;
-    self.postMessage({ type:'status', msg: 'Installing ' + pkg + ' ...' });
-    try {
-      await pyodide.runPythonAsync(\`import micropip; await micropip.install("\${pkg}")\`);
-      self.postMessage({ type:'status', msg: 'Installed ' + pkg });
-    } catch (err) {
-      self.postMessage({ type:'stderr', data: 'Install failed: ' + String(err) + '\\n' });
-      self.postMessage({ type:'status', msg: 'Install failed.' });
-    }
-  }
-};
-
-`;
-
-/* ---------------- Create worker ---------------- */
-let pyWorker = makeWorkerFromString(workerScript);
-
-/* ---------------- Console helpers ---------------- */
 const consoleEl = document.getElementById('console');
-function appendConsole(text) {
-  consoleEl.innerText += text;
-  consoleEl.scrollTop = consoleEl.scrollHeight;
-}
-function appendStatus(s) {
-  appendConsole('\\n[STATUS] ' + s + '\\n');
-}
-function appendStdout(s) {
-  appendConsole(s);
-}
-function appendStderr(s) {
-  appendConsole('[ERR] ' + s);
-}
+let pyodide = null;
+let pyodideReady = false;
 
-/* ---------------- Worker message handling ---------------- */
-pyWorker.onmessage = (ev) => {
-  const d = ev.data;
-  if (!d) return;
-  if (d.type === 'status') appendStatus(d.msg);
-  else if (d.type === 'stdout') appendStdout(d.data);
-  else if (d.type === 'stderr') appendStderr(d.data);
-  else appendConsole(JSON.stringify(d));
-};
-pyWorker.onerror = (e) => {
-  appendStderr('Worker error: ' + e.message + '\\n');
-};
+// Utilities
+function appendConsole(text){consoleEl.textContent += text; consoleEl.scrollTop = consoleEl.scrollHeight;}
+function appendConsoleLine(text=''){appendConsole(text+'\n');}
+function clearConsole(){consoleEl.textContent='';}
 
-/* ---------------- Monaco Editor ---------------- */
-require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.34.1/min/vs' }});
-require(['vs/editor/editor.main'], function() {
-  window.editor = monaco.editor.create(document.getElementById('editor'), {
-    value: [
-      '# Example program',
-      'name = input("Enter your name: ")',
-      'print("Hello,", name)',
-    ].join('\\n'),
-    language: 'python',
-    theme: 'vs-dark',
-    automaticLayout: true,
-    fontSize: 13,
-    minimap: { enabled: false },
+// Inline input
+function createConsoleInput(prompt=''){
+  return new Promise(resolve=>{
+    appendConsole(prompt);
+    const wrapper=document.createElement('div');
+    wrapper.className='console-input-wrap';
+    const input=document.createElement('input');
+    input.className='console-input';
+    const btn=document.createElement('button');
+    btn.className='console-submit';
+    btn.textContent='Enter';
+    function submit(){
+      appendConsoleLine(input.value);
+      wrapper.remove();
+      resolve(input.value+'\n');
+    }
+    btn.addEventListener('click', submit);
+    input.addEventListener('keydown', e=>{if(e.key==='Enter') submit();});
+    wrapper.appendChild(input);
+    wrapper.appendChild(btn);
+    consoleEl.appendChild(wrapper);
+    input.focus();
+    consoleEl.scrollTop = consoleEl.scrollHeight;
   });
+}
+
+// Initialize CodeMirror
+const editor = CodeMirror.fromTextArea(document.getElementById('code'),{
+  mode:'python', theme:'dracula', lineNumbers:true, indentUnit:4, tabSize:4
+});
+editor.setSize('100%','100%');
+
+// Load Pyodide
+async function initPyodide(){
+  appendConsoleLine("Loading Python runtime...");
+  pyodide = await loadPyodide();
+  pyodideReady = true;
+
+  pyodide.setStdout({batched: msg=>appendConsole(msg)});
+  pyodide.setStderr({batched: msg=>appendConsole(msg)});
+  pyodide.setStdin({readline:createConsoleInput});
+
+  appendConsoleLine("Python ready.\n");
+}
+initPyodide();
+
+// Run button
+document.getElementById('runBtn').addEventListener('click', async ()=>{
+  if(!pyodideReady){appendConsoleLine("Python still loading..."); return;}
+  appendConsoleLine('--- Running program ---');
+  const code = editor.getValue();
+  try{
+    await pyodide.runPythonAsync(code);
+  }catch(err){appendConsoleLine('Error:\n'+err);}
+  appendConsoleLine('--- Program finished ---\n');
 });
 
-/* ---------------- Buttons ---------------- */
-const runBtn = document.getElementById('runBtn');
-const stopBtn = document.getElementById('stopBtn');
-const clearBtn = document.getElementById('clearBtn');
-const copyBtn = document.getElementById('copyBtn');
-
-runBtn.onclick = async () => {
-  // clear console for each run (like Programiz)
-  consoleEl.innerText = '';
-
-  // get code from editor
-  const code = window.editor.getValue();
-
-  // ------------- Very simple input() handling -------------
-  // Find input(...) calls. If there are any, prompt the user sequentially using browser prompt()
-  // and replace the input(...) calls with string literals so the program runs non-interactively.
-  // This covers common simple use-cases (single-line input calls).
-  // Regex finds occurrences of input( ... ) possibly with a string prompt literal.
-  const inputRegex = /input\\s*\\(\\s*([^)]*)\\s*\\)/g;
-  const inputs = [];
-  let m;
-  while ((m = inputRegex.exec(code)) !== null) {
-    inputs.push({ match: m[0], arg: m[1] });
-  }
-
-  let finalCode = code;
-  if (inputs.length > 0) {
-    // For each found input(), ask user for a value (using prompt())
-    for (let i=0;i<inputs.length;i++) {
-      const promptArg = inputs[i].arg.trim();
-      // try to extract literal prompt string if present
-      let promptText = '';
-      if (promptArg.startsWith(\"'\") || promptArg.startsWith('\"')) {
-        // crude literal string extract
-        try {
-          // evaluate the JS string literal by replacing single quotes to double if necessary
-          // safer approach: strip quotes
-          promptText = promptArg.replace(/^['\"]|['\"]$/g, '');
-        } catch(e) { promptText = ''; }
-      } else {
-        promptText = 'Enter input:';
-      }
-      const userVal = window.prompt(promptText, '');
-      // If user cancelled, stop execution
-      if (userVal === null) {
-        appendStatus('Run canceled by user during input prompt.');
-        return;
-      }
-      // replace the first occurrence of this exact match with a Python literal repr
-      const safeLiteral = JSON.stringify(userVal); // produces a double-quoted JS string, valid as Python literal for common cases
-      finalCode = finalCode.replace(inputs[i].match, safeLiteral);
-    }
-    appendStatus('Replaced input() calls with provided values.');
-  }
-
-  // Post to worker to run
-  pyWorker.postMessage({ cmd: 'run', code: finalCode });
-};
-
-stopBtn.onclick = () => {
-  try {
-    pyWorker.terminate();
-  } catch (e) {}
-  appendStatus('Execution stopped by user. Worker terminated. Recreating worker...');
-  // create a fresh worker
-  pyWorker = makeWorkerFromString(workerScript);
-  pyWorker.onmessage = (ev) => {
-    const d = ev.data;
-    if (!d) return;
-    if (d.type === 'status') appendStatus(d.msg);
-    else if (d.type === 'stdout') appendStdout(d.data);
-    else if (d.type === 'stderr') appendStderr(d.data);
-    else appendConsole(JSON.stringify(d));
-  };
-  pyWorker.onerror = (e) => { appendStderr('Worker error: ' + e.message + '\\n'); };
-};
-
-clearBtn.onclick = () => {
-  consoleEl.innerText = '';
-};
-
-copyBtn.onclick = async () => {
-  try {
-    await navigator.clipboard.writeText(window.editor.getValue());
-    appendStatus('Code copied to clipboard.');
-  } catch (e) {
-    appendStderr('Copy failed: ' + e);
-  }
-};
-
-/* ---------------- Small helper: show initial guidance ---------------- */
-appendStatus('Worker created. Pyodide will load inside the worker (first run may take a few seconds).');
-
+// Clear console
+document.getElementById('clearBtn').addEventListener('click', clearConsole);
 </script>
 </body>
 </html>
